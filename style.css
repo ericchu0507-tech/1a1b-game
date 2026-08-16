@@ -123,6 +123,19 @@ h1 {
 }
 .btn-outline:hover { border-color: #6060a0; color: #ccc; }
 
+.btn-back {
+  background: transparent;
+  border: none;
+  color: #383850;
+  font-size: 11px;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 1px;
+  cursor: pointer;
+  padding: 4px 2px;
+  transition: color 0.15s;
+}
+.btn-back:hover { color: #7070a0; }
+
 .btn-ghost {
   background: transparent; border: 1px solid #222233; border-radius: 6px;
   color: #444; font-size: 11px; font-family: 'Courier New', monospace;

@@ -111,7 +111,6 @@ function startSolo() {
   gameOver = false;
   buildSoloGrid();
   initNotes();
-  document.getElementById('modeLabel').textContent = '挑戰電腦';
   document.getElementById('triesLabel').textContent = '0 / 10';
   document.getElementById('triesBar').style.width = '0%';
   document.getElementById('inputError').classList.add('hidden');
@@ -540,6 +539,12 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'Backspace' || e.key === 'Delete') handler('del');
   else if (e.key === 'Enter') handler('enter');
 });
+
+// Back to menu buttons
+document.getElementById('backFromGame').onclick    = () => showScreen('mode');
+document.getElementById('backFromDual').onclick    = () => showScreen('mode');
+document.getElementById('backFromSetup').onclick   = () => showScreen('mode');
+document.getElementById('backFromHandoff').onclick = () => showScreen('mode');
 
 // Result buttons
 document.getElementById('playAgain').onclick = () => {

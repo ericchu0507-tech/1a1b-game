@@ -55,6 +55,7 @@
         placeholder="輸入後按確認" autocomplete="off" inputmode="numeric">
       <p id="setupError" class="error-msg hidden">請輸入 4 個不重複的數字</p>
       <button id="confirmSecret" class="btn-primary">確認</button>
+      <button class="btn-back" id="backFromSetup">← 回主選單</button>
     </div>
   </div>
 
@@ -65,13 +66,14 @@
       <h2 id="handoffTitle">請傳給玩家 2</h2>
       <p id="handoffMsg">設定完成，交給對方，不要讓他看到你的數字</p>
       <button id="handoffReady" class="btn-primary">我準備好了</button>
+      <button class="btn-back" id="backFromHandoff">← 回主選單</button>
     </div>
   </div>
 
   <!-- ── 單人遊戲 ── -->
   <div id="gameScreen" class="hidden">
     <div class="game-header">
-      <span id="modeLabel" class="mode-tag"></span>
+      <button class="btn-back" id="backFromGame">← 主選單</button>
       <div class="tries-info">
         <span id="triesLabel">0 / 10</span>
         <div class="tries-bar-wrap"><div id="triesBar" class="tries-bar"></div></div>
@@ -120,7 +122,7 @@
   <!-- ── 雙人遊戲（雙人對拆 / 雙人競速） ── -->
   <div id="dualGameScreen" class="hidden">
     <div class="dual-header">
-      <span class="mode-tag" id="dualModeLabel"></span>
+      <button class="btn-back" id="backFromDual">← 主選單</button>
       <div class="dual-turn-badge" id="dualTurnBadge">玩家 1 的回合</div>
     </div>
     <div class="dual-body">
