@@ -246,7 +246,6 @@ function launchDualGame() {
   dualCurrentPlayer = 0;
   dualGameOver = false;
 
-  document.getElementById('dualModeLabel').textContent = mode === 'dual' ? '雙人對拆' : '雙人競速';
   buildDualGrid(0);
   buildDualGrid(1);
   updateDualTurnUI();
