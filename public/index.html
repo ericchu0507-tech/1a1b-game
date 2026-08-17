@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>1A1B｜猜數字</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="container">
+
+  <!-- ── 主選單 ── -->
+  <div id="modeScreen">
+    <div class="brand">
+      <h1>1A1B</h1>
+      <p class="tagline">猜數字 · 解謎推理</p>
+    </div>
+    <div class="rules-card">
+      <p class="rules-title">如何玩</p>
+      <p class="rules-desc">猜一組 <b>4 位數</b>，每位數字不重複（0–9）</p>
+      <div class="ab-row"><div class="ab-chip a-chip">A</div><span>數字正確，位置也正確</span></div>
+      <div class="ab-row"><div class="ab-chip b-chip">B</div><span>數字正確，位置不對</span></div>
+      <div class="example-block">
+        <span class="eg-label">範例</span>
+        <span>答案 <b>1379</b>，猜 <b>1538</b> → <b class="ac">1A</b> <b class="bc">1B</b></span>
+        <p class="eg-note">不告訴你哪一格，靠你推理！</p>
+      </div>
+    </div>
+    <div class="mode-cards">
+      <button id="btnSolo" class="mode-card">
+        <span class="mc-icon">🤖</span>
+        <span class="mc-title">挑戰電腦</span>
+        <span class="mc-desc">單人 · 電腦隨機出題</span>
+      </button>
+      <button id="btnDual" class="mode-card">
+        <span class="mc-icon">⚔️</span>
+        <span class="mc-title">雙人對拆</span>
+        <span class="mc-desc">各設密碼 · 互相破解 · 即時看進度</span>
+      </button>
+      <button id="btnAiDual" class="mode-card">
+        <span class="mc-icon">🏁</span>
+        <span class="mc-title">雙人競速</span>
+        <span class="mc-desc">電腦出一題 · 兩人比賽誰猜得少</span>
+      </button>
+      <button id="btnOnline" class="mode-card mode-card-online">
+        <span class="mc-icon">🌐</span>
+        <span class="mc-title">線上對戰</span>
+        <span class="mc-desc">各用自己的手機 · 房間碼匹配</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── 線上模式選擇 ── -->
+  <div id="onlineScreen" class="hidden">
+    <div class="setup-card">
+      <p class="setup-player">線上對戰</p>
+      <h2>選擇模式</h2>
+      <p class="setup-hint">選好後建立或加入房間</p>
+      <div class="online-mode-btns">
+        <button id="btnOnlineDual" class="mode-card">
+          <span class="mc-icon">⚔️</span>
+          <span class="mc-title">雙人對拆</span>
+          <span class="mc-desc">各設密碼，互猜</span>
+        </button>
+        <button id="btnOnlineAiDual" class="mode-card">
+          <span class="mc-icon">🏁</span>
+          <span class="mc-title">雙人競速</span>
+          <span class="mc-desc">同一題，誰猜得少誰贏</span>
+        </button>
+      </div>
+      <button class="btn-back" id="backFromOnline">← 主選單</button>
+    </div>
+  </div>
+
+  <!-- ── 線上大廳：建立或加入房間 ── -->
+  <div id="lobbyScreen" class="hidden">
+    <div class="setup-card">
+      <p class="setup-player" id="lobbyModeLabel">線上對拆</p>
+      <h2>加入房間</h2>
+      <div class="lobby-section">
+        <button id="btnCreateRoom" class="btn-primary">建立新房間</button>
+      </div>
+      <div class="lobby-or">— 或 —</div>
+      <div class="lobby-section">
+        <p class="setup-hint">輸入朋友的房間號碼</p>
+        <div class="join-row">
+          <input id="roomCodeInput" type="text" maxlength="4" placeholder="1234"
+            inputmode="numeric" autocomplete="off">
+          <button id="btnJoinRoom" class="btn-primary">加入</button>
+        </div>
+        <p id="lobbyError" class="error-msg hidden"></p>
+      </div>
+      <button class="btn-back" id="backFromLobby">← 返回</button>
+    </div>
+  </div>
+
+  <!-- ── 等待畫面（等對手加入 or 等對方設密碼） ── -->
+  <div id="waitScreen" class="hidden">
+    <div class="wait-card">
+      <div id="waitEmoji" class="wait-emoji">⏳</div>
+      <h2 id="waitTitle">等待對手加入</h2>
+      <div id="waitCodeBox">
+        <p class="wait-code-label">房間號碼</p>
+        <div id="waitCode" class="wait-code">----</div>
+        <p class="wait-code-hint">把這個號碼告訴朋友，讓他加入</p>
+      </div>
+      <p id="waitMsg" class="wait-msg hidden"></p>
+      <button class="btn-back" id="backFromWait">← 取消</button>
+    </div>
+  </div>
+
+  <!-- ── 設定秘密數字 ── -->
+  <div id="setupScreen" class="hidden">
+    <div class="setup-card">
+      <p class="setup-player" id="setupTitle">玩家 1</p>
+      <h2>設定你的秘密數字</h2>
+      <p class="setup-hint">4 位數，不可重複，對方看不到</p>
+      <input id="secretInput" type="password" maxlength="4"
+        placeholder="輸入後按確認" autocomplete="off" inputmode="numeric">
+      <p id="setupError" class="error-msg hidden">請輸入 4 個不重複的數字</p>
+      <button id="confirmSecret" class="btn-primary">確認</button>
+      <button class="btn-back" id="backFromSetup">← 回主選單</button>
+    </div>
+  </div>
+
+  <!-- ── 傳遞畫面 ── -->
+  <div id="handoffScreen" class="hidden">
+    <div class="handoff-card">
+      <div class="handoff-emoji">🙈</div>
+      <h2 id="handoffTitle">請傳給玩家 2</h2>
+      <p id="handoffMsg">設定完成，交給對方，不要讓他看到你的數字</p>
+      <button id="handoffReady" class="btn-primary">我準備好了</button>
+      <button class="btn-back" id="backFromHandoff">← 回主選單</button>
+    </div>
+  </div>
+
+  <!-- ── 單人遊戲（也用於線上模式） ── -->
+  <div id="gameScreen" class="hidden">
+    <!-- 對手進度條（線上模式才顯示） -->
+    <div id="opponentBar" class="opponent-bar hidden">
+      <span class="opp-icon">👤</span>
+      <span class="opp-label" id="oppLabel">對手</span>
+      <span class="opp-count" id="oppCount">0 次</span>
+      <span id="oppResult" class="opp-result"></span>
+    </div>
+    <div class="game-header">
+      <button class="btn-back" id="backFromGame">← 主選單</button>
+      <div class="tries-info">
+        <span id="triesLabel">0 / 10</span>
+        <div class="tries-bar-wrap"><div id="triesBar" class="tries-bar"></div></div>
+      </div>
+    </div>
+    <div class="game-body">
+      <div class="game-left">
+        <div id="grid"></div>
+      </div>
+      <aside class="notes-panel">
+        <p class="notes-head">📝 推理筆記</p>
+        <p class="notes-sub">點一下確認・再點刪除</p>
+        <div id="notesMatrix"></div>
+        <div class="notes-legend">
+          <div class="leg-row"><span class="leg-chip lc-has">✓</span><span>確定在此位置</span></div>
+          <div class="leg-row"><span class="leg-chip lc-not">✗</span><span>確定不在此位置</span></div>
+        </div>
+        <button id="clearNotes" class="btn-ghost">清除筆記</button>
+      </aside>
+    </div>
+    <div id="inputArea">
+      <div id="digitBoxes">
+        <div class="dbox" data-i="0"></div>
+        <div class="dbox" data-i="1"></div>
+        <div class="dbox" data-i="2"></div>
+        <div class="dbox" data-i="3"></div>
+      </div>
+      <div id="numpad">
+        <button class="nk" data-v="1">1</button>
+        <button class="nk" data-v="2">2</button>
+        <button class="nk" data-v="3">3</button>
+        <button class="nk" data-v="4">4</button>
+        <button class="nk" data-v="5">5</button>
+        <button class="nk" data-v="6">6</button>
+        <button class="nk" data-v="7">7</button>
+        <button class="nk" data-v="8">8</button>
+        <button class="nk" data-v="9">9</button>
+        <button class="nk" data-v="del">⌫</button>
+        <button class="nk" data-v="0">0</button>
+        <button class="nk" data-v="enter" id="enterBtn">✓</button>
+      </div>
+      <p id="inputError" class="error-msg hidden"></p>
+    </div>
+  </div>
+
+  <!-- ── 雙人遊戲（同裝置） ── -->
+  <div id="dualGameScreen" class="hidden">
+    <div class="dual-header">
+      <button class="btn-back" id="backFromDual">← 主選單</button>
+      <div class="dual-turn-badge" id="dualTurnBadge">玩家 1 的回合</div>
+    </div>
+    <div class="dual-body">
+      <!-- 玩家 1 -->
+      <div class="dual-side" id="dualSide0">
+        <div class="dual-side-head">
+          <span class="dp-name">玩家 1</span>
+          <span class="dp-tries" id="dualTries0">0 / 10</span>
+        </div>
+        <div class="dual-grid-wrap" id="dualGrid0"></div>
+      </div>
+      <!-- 分隔線 -->
+      <div class="dual-divider"></div>
+      <!-- 玩家 2 -->
+      <div class="dual-side" id="dualSide1">
+        <div class="dual-side-head">
+          <span class="dp-name">玩家 2</span>
+          <span class="dp-tries" id="dualTries1">0 / 10</span>
+        </div>
+        <div class="dual-grid-wrap" id="dualGrid1"></div>
+      </div>
+    </div>
+    <!-- 輸入區 -->
+    <div class="dual-input-area">
+      <p class="dual-input-hint" id="dualInputHint"></p>
+      <div id="dualDigitBoxes">
+        <div class="dbox" data-i="0"></div>
+        <div class="dbox" data-i="1"></div>
+        <div class="dbox" data-i="2"></div>
+        <div class="dbox" data-i="3"></div>
+      </div>
+      <div id="dualNumpad">
+        <button class="nk" data-v="1">1</button>
+        <button class="nk" data-v="2">2</button>
+        <button class="nk" data-v="3">3</button>
+        <button class="nk" data-v="4">4</button>
+        <button class="nk" data-v="5">5</button>
+        <button class="nk" data-v="6">6</button>
+        <button class="nk" data-v="7">7</button>
+        <button class="nk" data-v="8">8</button>
+        <button class="nk" data-v="9">9</button>
+        <button class="nk" data-v="del">⌫</button>
+        <button class="nk" data-v="0">0</button>
+        <button class="nk" data-v="enter" id="dualEnterBtn">✓</button>
+      </div>
+      <p id="dualInputError" class="error-msg hidden"></p>
+    </div>
+  </div>
+
+  <!-- ── 結果畫面 ── -->
+  <div id="resultScreen" class="hidden">
+    <div class="result-card">
+      <div id="resultEmoji" class="result-emoji"></div>
+      <h2 id="resultTitle"></h2>
+      <p id="resultSecret" class="result-secret"></p>
+      <p id="resultDetail" class="result-detail"></p>
+      <div id="resultExtra" class="result-extra hidden"></div>
+      <div class="result-btns">
+        <button id="playAgain" class="btn-primary">再玩一次</button>
+        <button id="backMenu" class="btn-outline">回主選單</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script src="/socket.io/socket.io.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
