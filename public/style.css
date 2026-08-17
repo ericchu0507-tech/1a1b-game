@@ -242,20 +242,34 @@ h2 { font-size: 20px; letter-spacing: 3px; color: #d0d0f0; }
 .wait-msg { font-size: 13px; color: #555; letter-spacing: 1px; animation: pulse 2s infinite; }
 @keyframes pulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
 
+.wait-player-info {
+  font-size: 13px; color: #666; letter-spacing: 1px;
+  background: rgba(90,82,213,0.08); border: 1px solid rgba(90,82,213,0.2);
+  border-radius: 20px; padding: 6px 16px;
+}
+.wait-player-info span { display: inline; }
+.wait-player-max { color: #444; font-size: 11px; }
+
 /* ══════════════════════════════
-   OPPONENT BAR
+   OPPONENT BAR (multi-player)
 ══════════════════════════════ */
 .opponent-bar {
-  display: flex; align-items: center; gap: 10px;
   background: #0f0f1e; border: 1px solid #1a2a3a; border-radius: 8px;
-  padding: 8px 14px; font-size: 12px; letter-spacing: 1px;
+  padding: 10px 14px; display: flex; flex-direction: column; gap: 6px;
 }
-.opp-icon { font-size: 16px; }
-.opp-label { color: #444; flex-shrink: 0; }
-.opp-count { color: #7090ff; font-weight: bold; flex-shrink: 0; }
-.opp-result { color: #888; margin-left: auto; font-size: 11px; }
-.opp-result .ha { color: #4ade80; font-weight: bold; }
-.opp-result .hb { color: #fbbf24; font-weight: bold; }
+.opp-title { font-size: 10px; letter-spacing: 3px; color: #444; }
+.opp-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.opp-item {
+  display: flex; align-items: center; gap: 6px;
+  background: #0c0c18; border: 1px solid #1e1e2e; border-radius: 6px;
+  padding: 4px 10px; font-size: 12px;
+}
+.opp-name { color: #666; letter-spacing: 1px; }
+.opp-count { color: #7090ff; font-weight: bold; }
+.opp-ab .ha { color: #4ade80; font-weight: bold; }
+.opp-ab .hb { color: #fbbf24; font-weight: bold; }
+.opp-item.opp-won .opp-count { color: #ffd700; }
+.opp-item.opp-offline { opacity: 0.4; }
 
 /* ══════════════════════════════
    GAME SCREEN (single column)

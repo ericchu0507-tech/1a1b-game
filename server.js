@@ -50,44 +50,66 @@ io.on('connection', (socket) => {
     const code = genCode();
     rooms.set(code, {
       mode,
-      sockets: [socket, null],
-      // targets[i] = the secret that player i needs to guess
+      // ai-dual supports up to 4 players; dual stays at 2
+      maxPlayers: mode === 'ai-dual' ? 4 : 2,
+      sockets: [socket],
+      started: false,
+      aiSecret: null,
+      // dual-mode only
       targets: ['', ''],
       secretReady: [false, false],
-      aiSecret: mode === 'ai-dual' ? randomSecret() : null,
-      guessCount: [0, 0],
+      guessCount: [0],
     });
     roomCode = code;
     playerIdx = 0;
     socket.join(code);
-    socket.emit('room-created', { code });
+    socket.emit('room-created', { code, mode });
   });
 
   socket.on('join-room', ({ code }) => {
     const room = rooms.get(code);
     if (!room) { socket.emit('join-error', { msg: '找不到房間，請確認號碼' }); return; }
-    if (room.sockets[1]) { socket.emit('join-error', { msg: '房間已滿' }); return; }
+    if (room.started) { socket.emit('join-error', { msg: '遊戲已經開始了' }); return; }
+    if (room.sockets.length >= room.maxPlayers) { socket.emit('join-error', { msg: '房間已滿' }); return; }
 
-    room.sockets[1] = socket;
+    playerIdx = room.sockets.length;
+    room.sockets.push(socket);
+    room.guessCount.push(0);
     roomCode = code;
-    playerIdx = 1;
     socket.join(code);
 
-    room.sockets[0].emit('opponent-joined');
-    socket.emit('room-joined', { playerIdx: 1, mode: room.mode });
+    const count = room.sockets.length;
 
-    if (room.mode === 'ai-dual') {
-      io.to(code).emit('game-start', { mode: 'ai-dual' });
-    } else {
-      io.to(code).emit('game-start', { mode: 'dual' });
+    // Tell the new joiner their index and mode
+    socket.emit('room-joined', { playerIdx, mode: room.mode, playerCount: count });
+
+    // Tell everyone else that a new player joined
+    room.sockets.slice(0, -1).forEach(s => {
+      if (s && s.connected) s.emit('player-joined', { playerCount: count });
+    });
+
+    // dual (2-player only): auto-start immediately when 2nd player joins
+    if (room.mode === 'dual' && count === 2) {
+      room.started = true;
+      io.to(code).emit('game-start', { mode: 'dual', playerCount: 2 });
     }
+  });
+
+  // Only creator of ai-dual calls this
+  socket.on('start-game', () => {
+    const room = getRoom();
+    if (!room || playerIdx !== 0) return;
+    if (room.started) return;
+    if (room.sockets.length < 2) return;
+    room.started = true;
+    room.aiSecret = randomSecret();
+    io.to(roomCode).emit('game-start', { mode: 'ai-dual', playerCount: room.sockets.length });
   });
 
   socket.on('set-secret', ({ secret }) => {
     const room = getRoom();
     if (!room || room.mode !== 'dual') return;
     if (!isValidCode(secret)) return;
-    // My secret becomes the OTHER player's target
     room.targets[1 - playerIdx] = secret;
     room.secretReady[playerIdx] = true;
     socket.emit('secret-ok');
@@ -98,32 +120,38 @@ io.on('connection', (socket) => {
 
   socket.on('make-guess', ({ guess }) => {
     const room = getRoom();
-    if (!room) return;
+    if (!room || !room.started) return;
     const secret = room.mode === 'ai-dual' ? room.aiSecret : room.targets[playerIdx];
     if (!secret) return;
     const { a, b } = calcAB(secret, guess);
     room.guessCount[playerIdx]++;
 
-    // Result back to the guesser (include secret on win)
     socket.emit('guess-result', { a, b, won: a === 4, secret: a === 4 ? secret : null });
 
-    // Notify opponent
-    const other = room.sockets[1 - playerIdx];
-    if (other && other.connected) {
-      other.emit('opponent-update', {
-        count: room.guessCount[playerIdx],
-        // In AI-dual (same secret) show A/B to opponent too; in dual keep it private
-        a: room.mode === 'ai-dual' ? a : null,
-        b: room.mode === 'ai-dual' ? b : null,
-      });
-    }
-
-    if (a === 4) {
-      if (other && other.connected) {
-        other.emit('opponent-won', {
-          opponentSecret: room.mode === 'ai-dual' ? room.aiSecret : room.targets[1 - playerIdx],
+    // Notify ALL other connected players
+    room.sockets.forEach((s, idx) => {
+      if (idx !== playerIdx && s && s.connected) {
+        s.emit('opponent-update', {
+          playerIdx,
+          count: room.guessCount[playerIdx],
+          // In ai-dual (same secret) show A/B; in dual keep it private
+          a: room.mode === 'ai-dual' ? a : null,
+          b: room.mode === 'ai-dual' ? b : null,
         });
       }
+    });
+
+    if (a === 4) {
+      room.sockets.forEach((s, idx) => {
+        if (idx !== playerIdx && s && s.connected) {
+          s.emit('opponent-won', {
+            winnerIdx: playerIdx,
+            opponentSecret: room.mode === 'ai-dual'
+              ? room.aiSecret
+              : room.targets[1 - playerIdx],
+          });
+        }
+      });
       rooms.delete(roomCode);
     }
   });
@@ -131,9 +159,17 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     const room = getRoom();
     if (!room) return;
-    const other = room.sockets[1 - playerIdx];
-    if (other && other.connected) other.emit('opponent-disconnected');
-    rooms.delete(roomCode);
+    room.sockets[playerIdx] = null;
+    // Notify remaining connected players
+    room.sockets.forEach((s, idx) => {
+      if (idx !== playerIdx && s && s.connected) {
+        s.emit('opponent-disconnected', { playerIdx });
+      }
+    });
+    // Clean up room if everyone is gone
+    if (room.sockets.every(s => !s || !s.connected)) {
+      rooms.delete(roomCode);
+    }
   });
 });
 

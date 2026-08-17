@@ -49,20 +49,20 @@
         <span class="mc-icon">⚔️</span>
         <div class="mc-text">
           <span class="mc-title">線上對拆</span>
-          <span class="mc-desc">各設密碼，連線互猜，各用自己的手機</span>
+          <span class="mc-desc">各設密碼，連線互猜（2 人）</span>
         </div>
       </button>
       <button id="btnOnlineAiDual" class="mode-card mode-card-online">
         <span class="mc-icon">🏁</span>
         <div class="mc-text">
           <span class="mc-title">線上競速</span>
-          <span class="mc-desc">電腦出同一題，比誰猜得少</span>
+          <span class="mc-desc">電腦出同一題，2–4 人比速度</span>
         </div>
       </button>
     </div>
   </div>
 
-  <!-- ── 線上大廳：建立或加入房間 ── -->
+  <!-- ── 線上大廳 ── -->
   <div id="lobbyScreen" class="hidden">
     <div class="setup-card">
       <p class="setup-player" id="lobbyModeLabel">線上對拆</p>
@@ -89,12 +89,26 @@
     <div class="wait-card">
       <div id="waitEmoji" class="wait-emoji">⏳</div>
       <h2 id="waitTitle">等待對手加入</h2>
+
+      <!-- 房間號碼（建立者才看到） -->
       <div id="waitCodeBox">
         <p class="wait-code-label">房間號碼</p>
         <div id="waitCode" class="wait-code">----</div>
-        <p class="wait-code-hint">把這個號碼告訴朋友，讓他加入</p>
+        <p class="wait-code-hint">把這個號碼告訴朋友</p>
       </div>
+
+      <!-- 玩家人數（競速模式才顯示） -->
+      <div id="waitPlayerInfo" class="wait-player-info hidden">
+        <span id="waitPlayerText">已有 1 人加入</span>
+        <span class="wait-player-max">（最多 4 人）</span>
+      </div>
+
+      <!-- 開始按鈕（競速建立者，≥2人才能點） -->
+      <button id="btnStartGame" class="btn-primary hidden" disabled>開始遊戲</button>
+
+      <!-- 等待訊息（加入者，或等密碼） -->
       <p id="waitMsg" class="wait-msg hidden"></p>
+
       <button class="btn-back" id="backFromWait">← 取消</button>
     </div>
   </div>
@@ -124,14 +138,12 @@
     </div>
   </div>
 
-  <!-- ── 遊戲畫面（單人 / 線上 / 出題猜題） ── -->
+  <!-- ── 遊戲畫面 ── -->
   <div id="gameScreen" class="hidden">
-    <!-- 對手進度條（線上模式才顯示） -->
+    <!-- 對手進度（線上才顯示） -->
     <div id="opponentBar" class="opponent-bar hidden">
-      <span class="opp-icon">👤</span>
-      <span class="opp-label" id="oppLabel">對手：</span>
-      <span class="opp-count" id="oppCount">0 次</span>
-      <span id="oppResult" class="opp-result"></span>
+      <span class="opp-title">👥 對手</span>
+      <div id="oppList" class="opp-list"></div>
     </div>
 
     <div class="game-header">
@@ -142,10 +154,8 @@
       </div>
     </div>
 
-    <!-- 猜題格子 -->
     <div id="grid"></div>
 
-    <!-- 輸入區 -->
     <div id="inputArea">
       <div id="digitBoxes">
         <div class="dbox" data-i="0"></div>
@@ -170,7 +180,6 @@
       <p id="inputError" class="error-msg hidden"></p>
     </div>
 
-    <!-- 推理筆記（最下方） -->
     <aside class="notes-panel">
       <p class="notes-head">📝 推理筆記</p>
       <p class="notes-sub">點一下確認・再點刪除</p>

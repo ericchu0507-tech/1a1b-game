@@ -1,30 +1,30 @@
 const MAX_TRIES = 10;
 
-// ── Current mode ──
 // 'solo' | 'challenge' | 'online-dual' | 'online-ai-dual'
 let mode = '';
 
-// ── Game state ──
+// Game state
 let secret = '';
 let guesses = [];
 let inputBuf = '';
 let gameOver = false;
 
-// ── Setup state ──
+// Setup state
 let setupCallback = null;
 
-// ── Notes matrix ──
+// Notes matrix
 let notesCells = [];
 
-// ── Online state ──
+// Online state
 let socket = null;
 let pendingOnlineMode = '';  // 'dual' | 'ai-dual'
 let onlineSubMode = '';
 let myPlayerIdx = -1;
-let opponentGuessCount = 0;
 let pendingGuessDigits = '';
+// opponents: Map<playerIdx, { count, a, b, won, offline }>
+let opponents = new Map();
 
-// ── DOM ──
+// DOM
 const screens = {
   mode:    document.getElementById('modeScreen'),
   setup:   document.getElementById('setupScreen'),
@@ -66,7 +66,7 @@ function randomSecret() {
 }
 
 // ══════════════════════════════
-// SETUP / HANDOFF SCREENS
+// SETUP / HANDOFF
 // ══════════════════════════════
 function showSetup(playerLabel, cb) {
   setupCallback = cb;
@@ -103,7 +103,7 @@ document.getElementById('secretInput').addEventListener('input', function () {
 });
 
 // ══════════════════════════════
-// GAME SCREEN (shared by all modes)
+// GAME SCREEN
 // ══════════════════════════════
 function launchGame(secretVal, showOppBar) {
   secret = secretVal;
@@ -120,9 +120,7 @@ function launchGame(secretVal, showOppBar) {
   const bar = document.getElementById('opponentBar');
   if (showOppBar) {
     bar.classList.remove('hidden');
-    document.getElementById('oppCount').textContent = '0 次';
-    document.getElementById('oppResult').textContent = '';
-    document.getElementById('oppLabel').textContent = '對手：';
+    renderOpponentBar();
   } else {
     bar.classList.add('hidden');
   }
@@ -212,7 +210,6 @@ function submitGuess() {
   if (gameOver) return;
   if (inputBuf.length !== 4) { showInputError('請輸入 4 位數字'); return; }
 
-  // Online mode: send to server
   if (mode === 'online-dual' || mode === 'online-ai-dual') {
     pendingGuessDigits = inputBuf;
     socket.emit('make-guess', { guess: inputBuf });
@@ -221,7 +218,6 @@ function submitGuess() {
     return;
   }
 
-  // Local mode
   const { a, b } = calcResult(secret, inputBuf);
   const entry = { digits: inputBuf, a, b };
   guesses.push(entry);
@@ -263,7 +259,7 @@ function startChallenge() {
 }
 
 // ══════════════════════════════
-// RESULT SCREEN
+// RESULT
 // ══════════════════════════════
 function showResult({ emoji, title, secret: sec, detail }) {
   document.getElementById('resultEmoji').textContent = emoji;
@@ -317,40 +313,89 @@ function cycleNote(d, p) {
 document.getElementById('clearNotes').onclick = initNotes;
 
 // ══════════════════════════════
+// OPPONENT BAR
+// ══════════════════════════════
+function renderOpponentBar() {
+  const list = document.getElementById('oppList');
+  list.innerHTML = '';
+  opponents.forEach((opp, pIdx) => {
+    const item = document.createElement('div');
+    item.className = 'opp-item' + (opp.won ? ' opp-won' : '') + (opp.offline ? ' opp-offline' : '');
+    let abHtml = '';
+    if (opp.won) {
+      abHtml = '<span class="opp-count" style="color:#ffd700">✦ 猜中</span>';
+    } else if (opp.offline) {
+      abHtml = '<span class="opp-count" style="color:#555">離線</span>';
+    } else {
+      let countHtml = `<span class="opp-count">${opp.count}次</span>`;
+      let abDetail = '';
+      if (opp.a !== null) {
+        abDetail = `<span class="opp-ab"><span class="ha">${opp.a}A</span><span class="hb">${opp.b}B</span></span>`;
+      }
+      abHtml = countHtml + abDetail;
+    }
+    item.innerHTML = `<span class="opp-name">玩家${pIdx + 1}</span>${abHtml}`;
+    list.appendChild(item);
+  });
+}
+
+function initOpponents(playerCount) {
+  opponents.clear();
+  for (let i = 0; i < playerCount; i++) {
+    if (i !== myPlayerIdx) {
+      opponents.set(i, { count: 0, a: null, b: null, won: false, offline: false });
+    }
+  }
+}
+
+// ══════════════════════════════
 // ONLINE MODE
 // ══════════════════════════════
 function connectSocket() {
   if (socket && socket.connected) return;
   socket = io();
 
-  socket.on('room-created', ({ code }) => {
+  // --- Wait screen events ---
+
+  socket.on('room-created', ({ code, mode: m }) => {
     myPlayerIdx = 0;
     document.getElementById('waitCode').textContent = code;
-    showWaitFor('opponent');
+    showWaitCreator(m, 1);
   });
 
-  socket.on('opponent-joined', () => { /* game-start follows */ });
+  socket.on('player-joined', ({ playerCount }) => {
+    // Update wait screen player count (creator sees this)
+    updateWaitCreatorCount(playerCount);
+  });
 
-  socket.on('room-joined', ({ playerIdx: idx, mode: m }) => {
+  socket.on('room-joined', ({ playerIdx: idx, mode: m, playerCount }) => {
     myPlayerIdx = idx;
     onlineSubMode = m;
-  });
-
-  socket.on('game-start', ({ mode: m }) => {
-    onlineSubMode = m;
-    if (m === 'dual') {
-      showSetup('設定你的密碼', (val) => {
-        socket.emit('set-secret', { secret: val });
-        showWaitFor('secret');
-      });
-    } else {
-      startOnlineGame();
+    // Joiner: show "waiting for host to start" (ai-dual) or brief wait (dual)
+    if (m === 'ai-dual') {
+      showWaitJoiner(playerCount);
     }
   });
 
-  socket.on('secret-ok', () => { showWaitFor('secret'); });
+  // --- Game start ---
 
-  socket.on('both-secrets-set', () => { startOnlineGame(); });
+  socket.on('game-start', ({ mode: m, playerCount }) => {
+    onlineSubMode = m;
+    initOpponents(playerCount);
+    if (m === 'dual') {
+      showSetup('設定你的密碼', (val) => {
+        socket.emit('set-secret', { secret: val });
+        showWaitSecret();
+      });
+    } else {
+      startOnlineGame(playerCount);
+    }
+  });
+
+  socket.on('secret-ok', () => { showWaitSecret(); });
+  socket.on('both-secrets-set', () => { startOnlineGame(2); });
+
+  // --- In-game events ---
 
   socket.on('guess-result', ({ a, b, won, secret: revealedSecret }) => {
     const entry = { digits: pendingGuessDigits, a, b };
@@ -362,7 +407,11 @@ function connectSocket() {
       updateGrid();
       if (won) {
         gameOver = true;
-        setTimeout(() => showResult({ emoji:'🎉', title:'你猜到了！', secret:`答案是 ${revealedSecret}`, detail:`第 ${guesses.length} 次猜中` }), 400);
+        setTimeout(() => showResult({
+          emoji: '🎉', title: '你猜到了！',
+          secret: `答案是 ${revealedSecret}`,
+          detail: `第 ${guesses.length} 次猜中`
+        }), 400);
       } else if (guesses.length >= MAX_TRIES) {
         gameOver = true;
         setTimeout(() => showResult({ emoji:'😅', title:'猜不出來', secret:'次數用完了', detail:'' }), 400);
@@ -370,21 +419,27 @@ function connectSocket() {
     }, 4 * 100 + 180);
   });
 
-  socket.on('opponent-update', ({ count, a, b }) => {
-    opponentGuessCount = count;
-    document.getElementById('oppCount').textContent = `${count} 次`;
-    const resultEl = document.getElementById('oppResult');
-    if (a !== null && b !== null) {
-      resultEl.innerHTML = `上次：<span class="ha">${a}A</span> <span class="hb">${b}B</span>`;
-    }
+  socket.on('opponent-update', ({ playerIdx: pIdx, count, a, b }) => {
+    const opp = opponents.get(pIdx);
+    if (!opp) return;
+    opp.count = count;
+    if (a !== null) { opp.a = a; opp.b = b; }
+    renderOpponentBar();
   });
 
-  socket.on('opponent-won', ({ opponentSecret }) => {
+  socket.on('opponent-won', ({ winnerIdx, opponentSecret }) => {
+    const opp = opponents.get(winnerIdx);
+    if (opp) { opp.won = true; renderOpponentBar(); }
     gameOver = true;
     const txt = onlineSubMode === 'dual'
       ? `對手的密碼：${opponentSecret}`
       : `答案是 ${opponentSecret}`;
-    showResult({ emoji:'😔', title:'對手贏了！', secret: txt, detail:'' });
+    showResult({ emoji:'😔', title:'對手猜到了！', secret: txt, detail:'' });
+  });
+
+  socket.on('opponent-disconnected', ({ playerIdx: pIdx }) => {
+    const opp = opponents.get(pIdx);
+    if (opp) { opp.offline = true; renderOpponentBar(); }
   });
 
   socket.on('join-error', ({ msg }) => {
@@ -392,34 +447,64 @@ function connectSocket() {
     el.textContent = msg;
     el.classList.remove('hidden');
   });
-
-  socket.on('opponent-disconnected', () => {
-    gameOver = true;
-    showResult({ emoji:'📵', title:'對手離線了', secret:'', detail:'' });
-  });
 }
 
-function showWaitFor(state) {
-  if (state === 'opponent') {
-    document.getElementById('waitEmoji').textContent = '⏳';
-    document.getElementById('waitTitle').textContent = '等待對手加入';
-    document.getElementById('waitCodeBox').classList.remove('hidden');
-    document.getElementById('waitMsg').classList.add('hidden');
+// Wait screen helpers
+function showWaitCreator(m, count) {
+  document.getElementById('waitEmoji').textContent = '⏳';
+  document.getElementById('waitTitle').textContent = '等待朋友加入';
+  document.getElementById('waitCodeBox').classList.remove('hidden');
+  document.getElementById('waitMsg').classList.add('hidden');
+
+  if (m === 'ai-dual') {
+    // Show player count + start button
+    document.getElementById('waitPlayerInfo').classList.remove('hidden');
+    document.getElementById('waitPlayerText').textContent = `已有 ${count} 人加入`;
+    const btn = document.getElementById('btnStartGame');
+    btn.classList.remove('hidden');
+    btn.disabled = count < 2;
+    btn.textContent = count >= 2 ? `開始遊戲（${count} 人）` : '等待更多玩家...';
   } else {
-    document.getElementById('waitEmoji').textContent = '🔐';
-    document.getElementById('waitTitle').textContent = '等待對方設定';
-    document.getElementById('waitCodeBox').classList.add('hidden');
-    document.getElementById('waitMsg').textContent = '等待對方設定密碼...';
-    document.getElementById('waitMsg').classList.remove('hidden');
+    document.getElementById('waitPlayerInfo').classList.add('hidden');
+    document.getElementById('btnStartGame').classList.add('hidden');
   }
   showScreen('wait');
 }
 
-function startOnlineGame() {
+function updateWaitCreatorCount(count) {
+  document.getElementById('waitPlayerText').textContent = `已有 ${count} 人加入`;
+  const btn = document.getElementById('btnStartGame');
+  btn.disabled = count < 2;
+  btn.textContent = count >= 2 ? `開始遊戲（${count} 人）` : '等待更多玩家...';
+}
+
+function showWaitJoiner(count) {
+  document.getElementById('waitEmoji').textContent = '⏳';
+  document.getElementById('waitTitle').textContent = '等待房主開始';
+  document.getElementById('waitCodeBox').classList.add('hidden');
+  document.getElementById('btnStartGame').classList.add('hidden');
+  document.getElementById('waitPlayerInfo').classList.remove('hidden');
+  document.getElementById('waitPlayerText').textContent = `已有 ${count} 人在房間`;
+  document.getElementById('waitMsg').textContent = '等待房主按下「開始遊戲」...';
+  document.getElementById('waitMsg').classList.remove('hidden');
+  showScreen('wait');
+}
+
+function showWaitSecret() {
+  document.getElementById('waitEmoji').textContent = '🔐';
+  document.getElementById('waitTitle').textContent = '等待對方設定';
+  document.getElementById('waitCodeBox').classList.add('hidden');
+  document.getElementById('waitPlayerInfo').classList.add('hidden');
+  document.getElementById('btnStartGame').classList.add('hidden');
+  document.getElementById('waitMsg').textContent = '等待對方設定密碼...';
+  document.getElementById('waitMsg').classList.remove('hidden');
+  showScreen('wait');
+}
+
+function startOnlineGame(playerCount) {
   mode = onlineSubMode === 'ai-dual' ? 'online-ai-dual' : 'online-dual';
-  opponentGuessCount = 0;
   pendingGuessDigits = '';
-  launchGame('', true); // secret is on the server; local secret not used
+  launchGame('', true);
 }
 
 function disconnectSocket() {
@@ -427,6 +512,7 @@ function disconnectSocket() {
   myPlayerIdx = -1;
   onlineSubMode = '';
   pendingOnlineMode = '';
+  opponents.clear();
 }
 
 // ══════════════════════════════
@@ -468,13 +554,15 @@ document.getElementById('btnJoinRoom').onclick = () => {
   socket.emit('join-room', { code });
 };
 
-// Numpad
+document.getElementById('btnStartGame').onclick = () => {
+  if (socket) socket.emit('start-game');
+};
+
 document.getElementById('numpad').addEventListener('click', e => {
   const btn = e.target.closest('.nk');
   if (btn) handleDigit(btn.dataset.v);
 });
 
-// Keyboard
 document.addEventListener('keydown', e => {
   if (screens.game.classList.contains('hidden')) return;
   if (e.key >= '0' && e.key <= '9') handleDigit(e.key);
@@ -488,8 +576,7 @@ document.getElementById('backFromGame').onclick = () => {
   showScreen('mode');
 };
 document.getElementById('backFromSetup').onclick = () => {
-  disconnectSocket();
-  showScreen('mode');
+  disconnectSocket(); showScreen('mode');
 };
 document.getElementById('backFromHandoff').onclick = () => showScreen('mode');
 document.getElementById('backFromLobby').onclick   = () => showScreen('mode');
