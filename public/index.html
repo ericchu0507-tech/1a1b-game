@@ -151,6 +151,7 @@
       <div class="tries-info">
         <span id="triesLabel">0 / 10</span>
         <div class="tries-bar-wrap"><div id="triesBar" class="tries-bar"></div></div>
+        <span id="timerDisplay" class="timer-display hidden">⏱ 05:00</span>
       </div>
     </div>
 
@@ -202,7 +203,13 @@
 
       <!-- 位置矩陣 -->
       <div class="nm-section">
-        <p class="notes-sub">位置確認・點一下確認・再點刪除</p>
+        <div class="nm-head-row">
+          <p class="notes-sub">位置確認・點一下確認・再點刪除</p>
+          <div class="dn-actions">
+            <button id="nmSelectAll" class="btn-dn-act">全選</button>
+            <button id="nmClearAll"  class="btn-dn-act">全消</button>
+          </div>
+        </div>
         <div id="notesMatrix"></div>
         <div class="notes-legend">
           <div class="leg-row"><span class="leg-chip lc-has">✓</span><span>確定在此位置</span></div>

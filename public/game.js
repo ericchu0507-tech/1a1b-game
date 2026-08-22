@@ -25,6 +25,54 @@ let pendingGuessDigits = '';
 // opponents: Map<playerIdx, { count, a, b, won, offline }>
 let opponents = new Map();
 
+// Timer
+let guessTimerInterval = null;
+let timerSecondsLeft   = 0;
+const GUESS_TIME_LIMIT = 300; // 5 minutes
+
+function startGuessTimer() {
+  stopGuessTimer();
+  timerSecondsLeft = GUESS_TIME_LIMIT;
+  updateTimerDisplay();
+  const el = document.getElementById('timerDisplay');
+  el.classList.remove('hidden');
+  guessTimerInterval = setInterval(() => {
+    if (gameOver) { stopGuessTimer(); return; }
+    timerSecondsLeft--;
+    updateTimerDisplay();
+    if (timerSecondsLeft <= 0) {
+      stopGuessTimer();
+      onTimerExpired();
+    }
+  }, 1000);
+}
+
+function stopGuessTimer() {
+  clearInterval(guessTimerInterval);
+  guessTimerInterval = null;
+  const el = document.getElementById('timerDisplay');
+  if (el) el.classList.add('hidden');
+}
+
+function updateTimerDisplay() {
+  const el = document.getElementById('timerDisplay');
+  if (!el) return;
+  const m = Math.floor(timerSecondsLeft / 60);
+  const s = timerSecondsLeft % 60;
+  el.textContent = `⏱ ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  el.classList.toggle('timer-warning', timerSecondsLeft <= 60);
+}
+
+function onTimerExpired() {
+  gameOver = true;
+  if (mode === 'online-dual' || mode === 'online-ai-dual') {
+    socket.emit('out-of-tries');
+    showDualWaiting('時間到！等待其他人完成...');
+  } else {
+    showResult({ emoji: '⏰', title: '時間到！', secret: `答案是 ${secret}`, detail: '超過 5 分鐘限制' });
+  }
+}
+
 // DOM
 const screens = {
   mode:    document.getElementById('modeScreen'),
@@ -114,6 +162,7 @@ function launchGame(secretVal, showOppBar) {
 
   buildGrid();
   initNotes();
+  startGuessTimer();
   document.getElementById('triesLabel').textContent = '0 / 10';
   document.getElementById('triesBar').style.width = '0%';
   document.getElementById('inputError').classList.add('hidden');
@@ -225,6 +274,7 @@ function submitGuess() {
   const { a, b } = calcResult(secret, inputBuf);
   const entry = { digits: inputBuf, a, b };
   guesses.push(entry);
+  startGuessTimer();
   revealRow(guesses.length - 1, entry);
   inputBuf = '';
   document.getElementById('inputError').classList.add('hidden');
@@ -349,6 +399,15 @@ document.getElementById('dnClearAll').onclick = () => {
   renderDigitNotes();
 };
 
+document.getElementById('nmSelectAll').onclick = () => {
+  notesCells = notesCells.map(() => ['yes', 'yes', 'yes', 'yes']);
+  renderNotes();
+};
+document.getElementById('nmClearAll').onclick = () => {
+  notesCells = notesCells.map(() => ['', '', '', '']);
+  renderNotes();
+};
+
 // ══════════════════════════════
 // OPPONENT BAR
 // ══════════════════════════════
@@ -437,6 +496,7 @@ function connectSocket() {
   socket.on('guess-result', ({ a, b, won, secret: revealedSecret }) => {
     const entry = { digits: pendingGuessDigits, a, b };
     guesses.push(entry);
+    startGuessTimer();
     revealRow(guesses.length - 1, entry);
     pendingGuessDigits = '';
     document.getElementById('inputError').classList.add('hidden');
@@ -663,6 +723,7 @@ document.getElementById('numpad').addEventListener('click', e => {
 
 document.addEventListener('keydown', e => {
   if (screens.game.classList.contains('hidden')) return;
+  if (document.activeElement.tagName === 'TEXTAREA') return;
   if (e.key >= '0' && e.key <= '9') handleDigit(e.key);
   else if (e.key === 'Backspace' || e.key === 'Delete') handleDigit('del');
   else if (e.key === 'Enter') handleDigit('enter');
