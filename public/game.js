@@ -386,6 +386,11 @@ function cycleDigitNote(d) {
   const cycle = ['', 'in', 'out'];
   digitNotes[d] = cycle[(cycle.indexOf(digitNotes[d]) + 1) % 3];
   renderDigitNotes();
+  // 同步矩陣：選取「有」→ 全行打✓，其他 → 清空
+  notesCells[d] = digitNotes[d] === 'in'
+    ? ['yes', 'yes', 'yes', 'yes']
+    : ['', '', '', ''];
+  renderNotes();
 }
 
 document.getElementById('clearNotes').onclick = initNotes;
