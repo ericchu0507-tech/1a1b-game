@@ -116,6 +116,9 @@ function launchGame(secretVal, showOppBar) {
   document.getElementById('triesLabel').textContent = '0 / 10';
   document.getElementById('triesBar').style.width = '0%';
   document.getElementById('inputError').classList.add('hidden');
+  document.getElementById('waitingBanner').classList.add('hidden');
+  document.getElementById('inputArea').style.opacity = '';
+  document.getElementById('inputArea').style.pointerEvents = '';
 
   const bar = document.getElementById('opponentBar');
   if (showOppBar) {
@@ -407,14 +410,26 @@ function connectSocket() {
       updateGrid();
       if (won) {
         gameOver = true;
-        setTimeout(() => showResult({
-          emoji: '🎉', title: '你猜到了！',
-          secret: `答案是 ${revealedSecret}`,
-          detail: `第 ${guesses.length} 次猜中`
-        }), 400);
+        if (mode === 'online-ai-dual') {
+          // 競速：第一個猜中直接勝利
+          setTimeout(() => showResult({
+            emoji: '🎉', title: '你猜到了！',
+            secret: `答案是 ${revealedSecret}`,
+            detail: `第 ${guesses.length} 次猜中`
+          }), 400);
+        } else {
+          // 對拆：等對手也完成再結算
+          setTimeout(() => showDualWaiting('你猜到了！等待對手完成...'), 400);
+        }
       } else if (guesses.length >= MAX_TRIES) {
         gameOver = true;
-        setTimeout(() => showResult({ emoji:'😅', title:'猜不出來', secret:'次數用完了', detail:'' }), 400);
+        if (mode === 'online-ai-dual') {
+          setTimeout(() => showResult({ emoji:'😅', title:'猜不出來', secret:'次數用完了', detail:'' }), 400);
+        } else {
+          // 通知伺服器我用完次數了，等對手
+          socket.emit('out-of-tries');
+          setTimeout(() => showDualWaiting('次數用完了，等待對手完成...'), 400);
+        }
       }
     }, 4 * 100 + 180);
   });
@@ -427,14 +442,53 @@ function connectSocket() {
     renderOpponentBar();
   });
 
+  // 對拆模式：對手猜中了，但遊戲還沒結束（你還可以繼續）
+  socket.on('opponent-guessed', ({ opponentCount }) => {
+    const opp = opponents.get(1 - myPlayerIdx);
+    if (opp) { opp.won = true; opp.count = opponentCount; renderOpponentBar(); }
+    // 用小提示告知，不中斷遊戲
+    showInGameNotice(`對手已猜中（${opponentCount} 次），繼續！`);
+  });
+
+  // 對拆模式：兩人都完成，伺服器送來最終結果
+  socket.on('game-over', ({ winner, counts, won, targets }) => {
+    gameOver = true;
+    const myCount  = counts[myPlayerIdx];
+    const oppCount = counts[1 - myPlayerIdx];
+    const iWon     = won[myPlayerIdx];
+    const oppWon   = won[1 - myPlayerIdx];
+    const myTarget = targets[myPlayerIdx];
+
+    let emoji, title, detail;
+    if (winner === 'tie') {
+      emoji = '🤝'; title = '平手！';
+      detail = `雙方都猜了 ${myCount} 次`;
+    } else if (winner === 'nobody') {
+      emoji = '😅'; title = '雙方都沒猜出來';
+      detail = '';
+    } else {
+      const iAmWinner = (winner === `p${myPlayerIdx}`);
+      emoji = iAmWinner ? '🏆' : '😔';
+      title = iAmWinner ? '你贏了！' : '對手贏了';
+      if (iWon && oppWon) {
+        detail = iAmWinner
+          ? `你 ${myCount} 次 vs 對手 ${oppCount} 次`
+          : `對手 ${oppCount} 次 vs 你 ${myCount} 次`;
+      } else if (iWon && !oppWon) {
+        detail = `你 ${myCount} 次猜中，對手沒猜出來`;
+      } else {
+        detail = `你沒猜出來，對手 ${oppCount} 次猜中`;
+      }
+    }
+    showResult({ emoji, title, secret: `你猜的密碼：${myTarget}`, detail });
+  });
+
+  // 競速模式：對手猜中，你輸了
   socket.on('opponent-won', ({ winnerIdx, opponentSecret }) => {
     const opp = opponents.get(winnerIdx);
     if (opp) { opp.won = true; renderOpponentBar(); }
     gameOver = true;
-    const txt = onlineSubMode === 'dual'
-      ? `對手的密碼：${opponentSecret}`
-      : `答案是 ${opponentSecret}`;
-    showResult({ emoji:'😔', title:'對手猜到了！', secret: txt, detail:'' });
+    showResult({ emoji:'😔', title:'對手猜到了！', secret:`答案是 ${opponentSecret}`, detail:'' });
   });
 
   socket.on('opponent-disconnected', ({ playerIdx: pIdx }) => {
@@ -505,6 +559,25 @@ function startOnlineGame(playerCount) {
   mode = onlineSubMode === 'ai-dual' ? 'online-ai-dual' : 'online-dual';
   pendingGuessDigits = '';
   launchGame('', true);
+}
+
+// 雙人對拆：你完成了，等對手
+function showDualWaiting(msg) {
+  const banner = document.getElementById('waitingBanner');
+  document.getElementById('waitingBannerMsg').textContent = msg;
+  banner.classList.remove('hidden');
+  // 隱藏輸入區
+  document.getElementById('inputArea').style.opacity = '0.3';
+  document.getElementById('inputArea').style.pointerEvents = 'none';
+}
+
+// 對拆模式內的小通知（不中斷遊戲）
+function showInGameNotice(msg) {
+  const banner = document.getElementById('waitingBanner');
+  document.getElementById('waitingBannerMsg').textContent = msg;
+  banner.classList.remove('hidden');
+  // 3 秒後自動消失
+  setTimeout(() => banner.classList.add('hidden'), 3000);
 }
 
 function disconnectSocket() {

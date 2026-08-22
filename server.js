@@ -50,7 +50,6 @@ io.on('connection', (socket) => {
     const code = genCode();
     rooms.set(code, {
       mode,
-      // ai-dual supports up to 4 players; dual stays at 2
       maxPlayers: mode === 'ai-dual' ? 4 : 2,
       sockets: [socket],
       started: false,
@@ -59,6 +58,9 @@ io.on('connection', (socket) => {
       targets: ['', ''],
       secretReady: [false, false],
       guessCount: [0],
+      // dual end-game tracking
+      playerDone: [false, false],
+      playerWon:  [false, false],
     });
     roomCode = code;
     playerIdx = 0;
@@ -128,33 +130,65 @@ io.on('connection', (socket) => {
 
     socket.emit('guess-result', { a, b, won: a === 4, secret: a === 4 ? secret : null });
 
-    // Notify ALL other connected players
-    room.sockets.forEach((s, idx) => {
-      if (idx !== playerIdx && s && s.connected) {
-        s.emit('opponent-update', {
-          playerIdx,
-          count: room.guessCount[playerIdx],
-          // In ai-dual (same secret) show A/B; in dual keep it private
-          a: room.mode === 'ai-dual' ? a : null,
-          b: room.mode === 'ai-dual' ? b : null,
-        });
-      }
-    });
-
-    if (a === 4) {
+    if (room.mode === 'ai-dual') {
+      // 競速：通知所有對手進度，第一個猜中就結束
       room.sockets.forEach((s, idx) => {
         if (idx !== playerIdx && s && s.connected) {
-          s.emit('opponent-won', {
-            winnerIdx: playerIdx,
-            opponentSecret: room.mode === 'ai-dual'
-              ? room.aiSecret
-              : room.targets[1 - playerIdx],
-          });
+          s.emit('opponent-update', { playerIdx, count: room.guessCount[playerIdx], a, b });
         }
       });
-      rooms.delete(roomCode);
+      if (a === 4) {
+        room.sockets.forEach((s, idx) => {
+          if (idx !== playerIdx && s && s.connected) {
+            s.emit('opponent-won', { winnerIdx: playerIdx, opponentSecret: room.aiSecret });
+          }
+        });
+        rooms.delete(roomCode);
+      }
+    } else {
+      // 對拆：對手只看到次數（不看 A/B），兩邊都完成才結算
+      const other = room.sockets[1 - playerIdx];
+      if (other && other.connected) {
+        other.emit('opponent-update', { playerIdx, count: room.guessCount[playerIdx], a: null, b: null });
+      }
+      if (a === 4) {
+        room.playerDone[playerIdx] = true;
+        room.playerWon[playerIdx]  = true;
+        // 通知對手：你猜到了，他可以繼續
+        if (other && other.connected) {
+          other.emit('opponent-guessed', { opponentCount: room.guessCount[playerIdx] });
+        }
+        checkDualDone(room);
+      }
     }
   });
+
+  // 客戶端次數用完時通知伺服器
+  socket.on('out-of-tries', () => {
+    const room = getRoom();
+    if (!room || room.mode !== 'dual') return;
+    room.playerDone[playerIdx] = true;
+    room.playerWon[playerIdx]  = false;
+    checkDualDone(room);
+  });
+
+  function checkDualDone(room) {
+    if (!room.playerDone[0] || !room.playerDone[1]) return;
+    const [w0, w1] = room.playerWon;
+    const [c0, c1] = room.guessCount;
+    let winner;
+    if (w0 && w1)       winner = c0 < c1 ? 'p0' : c1 < c0 ? 'p1' : 'tie';
+    else if (w0)        winner = 'p0';
+    else if (w1)        winner = 'p1';
+    else                winner = 'nobody';
+    io.to(roomCode).emit('game-over', {
+      winner,
+      counts:  [c0, c1],
+      won:     [w0, w1],
+      targets: room.targets,
+    });
+    rooms.delete(roomCode);
+  }
 
   socket.on('disconnect', () => {
     const room = getRoom();

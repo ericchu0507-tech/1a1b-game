@@ -272,6 +272,21 @@ h2 { font-size: 20px; letter-spacing: 3px; color: #d0d0f0; }
 .opp-item.opp-offline { opacity: 0.4; }
 
 /* ══════════════════════════════
+   WAITING BANNER (dual mode)
+══════════════════════════════ */
+.waiting-banner {
+  background: rgba(90,82,213,0.1);
+  border: 1px solid rgba(90,82,213,0.3);
+  border-radius: 8px;
+  padding: 10px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: #a0a0d0;
+  letter-spacing: 1px;
+  animation: pulse 2s infinite;
+}
+
+/* ══════════════════════════════
    GAME SCREEN (single column)
 ══════════════════════════════ */
 #gameScreen { width: 100%; display: flex; flex-direction: column; gap: 14px; }
