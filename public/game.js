@@ -282,6 +282,7 @@ function initNotes() {
   digitNotes = Array(10).fill('');
   renderNotes();
   renderDigitNotes();
+  document.getElementById('freeNote').value = '';
 }
 
 function renderNotes() {

@@ -354,6 +354,18 @@ h2 { font-size: 20px; letter-spacing: 3px; color: #d0d0f0; }
 
 .nm-section { display: flex; flex-direction: column; gap: 6px; }
 
+.fn-section { display: flex; flex-direction: column; gap: 6px; }
+.free-note {
+  width: 100%; box-sizing: border-box;
+  min-height: 80px; resize: vertical;
+  background: #0c0c18; border: 1px solid #252535; border-radius: 6px;
+  color: #aaa; font-size: 13px; font-family: 'Courier New', monospace;
+  padding: 10px 12px; line-height: 1.7;
+  outline: none; transition: border-color 0.15s;
+}
+.free-note:focus { border-color: #5050a0; }
+.free-note::placeholder { color: #333; }
+
 /* ── Notes panel (bottom) ── */
 .notes-panel {
   width: 100%;
