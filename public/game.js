@@ -12,8 +12,9 @@ let gameOver = false;
 // Setup state
 let setupCallback = null;
 
-// Notes matrix
+// Notes
 let notesCells = [];
+let digitNotes = [];
 
 // Online state
 let socket = null;
@@ -278,7 +279,9 @@ function showResult({ emoji, title, secret: sec, detail }) {
 // ══════════════════════════════
 function initNotes() {
   notesCells = Array.from({ length: 10 }, () => ['', '', '', '']);
+  digitNotes = Array(10).fill('');
   renderNotes();
+  renderDigitNotes();
 }
 
 function renderNotes() {
@@ -311,6 +314,27 @@ function cycleNote(d, p) {
   const cycle = ['', 'yes', 'no'];
   notesCells[d][p] = cycle[(cycle.indexOf(notesCells[d][p]) + 1) % 3];
   renderNotes();
+}
+
+function renderDigitNotes() {
+  const el = document.getElementById('digitNotes');
+  el.innerHTML = '';
+  for (let d = 0; d <= 9; d++) {
+    const btn = document.createElement('button');
+    btn.className = 'dn-cell';
+    const state = digitNotes[d];
+    if (state === 'in')  btn.classList.add('dn-in');
+    if (state === 'out') btn.classList.add('dn-out');
+    btn.textContent = d;
+    btn.onclick = () => cycleDigitNote(d);
+    el.appendChild(btn);
+  }
+}
+
+function cycleDigitNote(d) {
+  const cycle = ['', 'in', 'out'];
+  digitNotes[d] = cycle[(cycle.indexOf(digitNotes[d]) + 1) % 3];
+  renderDigitNotes();
 }
 
 document.getElementById('clearNotes').onclick = initNotes;
@@ -410,26 +434,12 @@ function connectSocket() {
       updateGrid();
       if (won) {
         gameOver = true;
-        if (mode === 'online-ai-dual') {
-          // 競速：第一個猜中直接勝利
-          setTimeout(() => showResult({
-            emoji: '🎉', title: '你猜到了！',
-            secret: `答案是 ${revealedSecret}`,
-            detail: `第 ${guesses.length} 次猜中`
-          }), 400);
-        } else {
-          // 對拆：等對手也完成再結算
-          setTimeout(() => showDualWaiting('你猜到了！等待對手完成...'), 400);
-        }
+        // 兩種線上模式都等所有人完成才結算
+        setTimeout(() => showDualWaiting('你猜到了！等待其他人完成...'), 400);
       } else if (guesses.length >= MAX_TRIES) {
         gameOver = true;
-        if (mode === 'online-ai-dual') {
-          setTimeout(() => showResult({ emoji:'😅', title:'猜不出來', secret:'次數用完了', detail:'' }), 400);
-        } else {
-          // 通知伺服器我用完次數了，等對手
-          socket.emit('out-of-tries');
-          setTimeout(() => showDualWaiting('次數用完了，等待對手完成...'), 400);
-        }
+        socket.emit('out-of-tries');
+        setTimeout(() => showDualWaiting('次數用完了，等待其他人完成...'), 400);
       }
     }, 4 * 100 + 180);
   });
@@ -442,53 +452,58 @@ function connectSocket() {
     renderOpponentBar();
   });
 
-  // 對拆模式：對手猜中了，但遊戲還沒結束（你還可以繼續）
-  socket.on('opponent-guessed', ({ opponentCount }) => {
-    const opp = opponents.get(1 - myPlayerIdx);
-    if (opp) { opp.won = true; opp.count = opponentCount; renderOpponentBar(); }
-    // 用小提示告知，不中斷遊戲
-    showInGameNotice(`對手已猜中（${opponentCount} 次），繼續！`);
+  // 有人猜中了但遊戲繼續（兩種模式都用）
+  socket.on('opponent-guessed', ({ playerIdx: pIdx, count }) => {
+    const opp = opponents.get(pIdx);
+    if (opp) { opp.won = true; opp.count = count; renderOpponentBar(); }
+    showInGameNotice(`玩家 ${pIdx + 1} 猜中了（${count} 次），繼續！`);
   });
 
-  // 對拆模式：兩人都完成，伺服器送來最終結果
-  socket.on('game-over', ({ winner, counts, won, targets }) => {
+  // 所有人都完成，伺服器送最終結果
+  socket.on('game-over', ({ winners, counts, won, targets, aiSecret, mode: m }) => {
     gameOver = true;
-    const myCount  = counts[myPlayerIdx];
-    const oppCount = counts[1 - myPlayerIdx];
-    const iWon     = won[myPlayerIdx];
-    const oppWon   = won[1 - myPlayerIdx];
-    const myTarget = targets[myPlayerIdx];
+    const myCount = counts[myPlayerIdx];
+    const iWon    = won[myPlayerIdx];
+    const iAmWinner = winners.includes(myPlayerIdx);
+    const isTie     = winners.length > 1 && iAmWinner;
 
     let emoji, title, detail;
-    if (winner === 'tie') {
+    if (winners.length === 0) {
+      emoji = '😅'; title = '沒人猜出來'; detail = '';
+    } else if (isTie) {
       emoji = '🤝'; title = '平手！';
-      detail = `雙方都猜了 ${myCount} 次`;
-    } else if (winner === 'nobody') {
-      emoji = '😅'; title = '雙方都沒猜出來';
-      detail = '';
+      detail = `大家都猜了 ${myCount} 次`;
+    } else if (iAmWinner) {
+      emoji = '🏆'; title = '你贏了！';
+      detail = `你用了 ${myCount} 次`;
     } else {
-      const iAmWinner = (winner === `p${myPlayerIdx}`);
-      emoji = iAmWinner ? '🏆' : '😔';
-      title = iAmWinner ? '你贏了！' : '對手贏了';
-      if (iWon && oppWon) {
-        detail = iAmWinner
-          ? `你 ${myCount} 次 vs 對手 ${oppCount} 次`
-          : `對手 ${oppCount} 次 vs 你 ${myCount} 次`;
-      } else if (iWon && !oppWon) {
-        detail = `你 ${myCount} 次猜中，對手沒猜出來`;
-      } else {
-        detail = `你沒猜出來，對手 ${oppCount} 次猜中`;
-      }
+      const winIdx = winners[0];
+      emoji = '😔'; title = '這次輸了';
+      detail = iWon
+        ? `你 ${myCount} 次，但玩家 ${winIdx + 1} 只用了 ${counts[winIdx]} 次`
+        : `你沒猜出來`;
     }
-    showResult({ emoji, title, secret: `你猜的密碼：${myTarget}`, detail });
-  });
 
-  // 競速模式：對手猜中，你輸了
-  socket.on('opponent-won', ({ winnerIdx, opponentSecret }) => {
-    const opp = opponents.get(winnerIdx);
-    if (opp) { opp.won = true; renderOpponentBar(); }
-    gameOver = true;
-    showResult({ emoji:'😔', title:'對手猜到了！', secret:`答案是 ${opponentSecret}`, detail:'' });
+    // 列出所有人成績
+    const rows = counts.map((c, i) => {
+      const isMe = i === myPlayerIdx;
+      const w = won[i];
+      const isWinnerPlayer = winners.includes(i);
+      return `<div style="${isMe ? 'color:#c8c8ff' : ''}">${isWinnerPlayer ? '🏆 ' : ''}玩家 ${i + 1}${isMe ? '（你）' : ''}：${w ? c + ' 次猜中' : '未猜出'}</div>`;
+    }).join('');
+
+    const secretText = m === 'ai-dual'
+      ? `答案是 ${aiSecret}`
+      : `你猜的密碼：${targets[myPlayerIdx]}`;
+
+    document.getElementById('resultEmoji').textContent = emoji;
+    document.getElementById('resultTitle').textContent = title;
+    document.getElementById('resultSecret').textContent = secretText;
+    document.getElementById('resultDetail').textContent = detail;
+    const extra = document.getElementById('resultExtra');
+    extra.innerHTML = rows;
+    extra.classList.remove('hidden');
+    showScreen('result');
   });
 
   socket.on('opponent-disconnected', ({ playerIdx: pIdx }) => {

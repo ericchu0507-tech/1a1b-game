@@ -187,13 +187,24 @@
 
     <aside class="notes-panel">
       <p class="notes-head">📝 推理筆記</p>
-      <p class="notes-sub">點一下確認・再點刪除</p>
-      <div id="notesMatrix"></div>
-      <div class="notes-legend">
-        <div class="leg-row"><span class="leg-chip lc-has">✓</span><span>確定在此位置</span></div>
-        <div class="leg-row"><span class="leg-chip lc-not">✗</span><span>確定不在此位置</span></div>
+
+      <!-- 數字狀態（確定有/沒有） -->
+      <div class="dn-section">
+        <p class="dn-head">數字狀態 <span class="dn-legend-inline"><span class="dn-chip-in">●</span>有&nbsp;<span class="dn-chip-out">✗</span>沒有</span></p>
+        <div id="digitNotes" class="dn-row"></div>
       </div>
-      <button id="clearNotes" class="btn-ghost">清除筆記</button>
+
+      <!-- 位置矩陣 -->
+      <div class="nm-section">
+        <p class="notes-sub">位置確認・點一下確認・再點刪除</p>
+        <div id="notesMatrix"></div>
+        <div class="notes-legend">
+          <div class="leg-row"><span class="leg-chip lc-has">✓</span><span>確定在此位置</span></div>
+          <div class="leg-row"><span class="leg-chip lc-not">✗</span><span>確定不在此位置</span></div>
+        </div>
+      </div>
+
+      <button id="clearNotes" class="btn-ghost">清除所有筆記</button>
     </aside>
   </div>
 

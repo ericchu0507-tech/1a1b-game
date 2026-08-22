@@ -335,6 +335,25 @@ h2 { font-size: 20px; letter-spacing: 3px; color: #d0d0f0; }
 #digitBoxes { display: flex; gap: 8px; }
 #numpad { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; width: min(280px,100%); }
 
+/* ── Digit Notes ── */
+.dn-section { display: flex; flex-direction: column; gap: 6px; }
+.dn-head { font-size: 11px; letter-spacing: 2px; color: #555; display: flex; align-items: center; gap: 8px; }
+.dn-legend-inline { font-size: 10px; color: #444; letter-spacing: 0; display: flex; align-items: center; gap: 4px; }
+.dn-chip-in  { font-size: 10px; color: #4ade80; }
+.dn-chip-out { font-size: 10px; color: #f87171; text-decoration: line-through; }
+.dn-row { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
+.dn-cell {
+  height: 36px; font-size: 14px; font-weight: bold;
+  background: #0f0f1c; border: 1px solid #252535; border-radius: 5px;
+  color: #505068; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.1s; padding: 0; font-family: 'Courier New', monospace; user-select: none;
+}
+.dn-cell:hover { border-color: #4a4a68; background: #141422; }
+.dn-cell.dn-in  { background: rgba(74,222,128,0.16); border-color: #4ade80; color: #4ade80; box-shadow: 0 0 8px rgba(74,222,128,0.18); }
+.dn-cell.dn-out { background: #0a0a12; border-color: #3a2020; color: #e03030; text-decoration: line-through; }
+
+.nm-section { display: flex; flex-direction: column; gap: 6px; }
+
 /* ── Notes panel (bottom) ── */
 .notes-panel {
   width: 100%;
