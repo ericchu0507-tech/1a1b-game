@@ -340,6 +340,15 @@ function cycleDigitNote(d) {
 
 document.getElementById('clearNotes').onclick = initNotes;
 
+document.getElementById('dnSelectAll').onclick = () => {
+  digitNotes = digitNotes.map(() => 'in');
+  renderDigitNotes();
+};
+document.getElementById('dnClearAll').onclick = () => {
+  digitNotes = digitNotes.map(() => '');
+  renderDigitNotes();
+};
+
 // ══════════════════════════════
 // OPPONENT BAR
 // ══════════════════════════════

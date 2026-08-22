@@ -354,6 +354,15 @@ h2 { font-size: 20px; letter-spacing: 3px; color: #d0d0f0; }
 
 .nm-section { display: flex; flex-direction: column; gap: 6px; }
 
+.dn-head-row { display: flex; align-items: center; justify-content: space-between; }
+.dn-actions { display: flex; gap: 5px; }
+.btn-dn-act {
+  background: transparent; border: 1px solid #252535; border-radius: 4px;
+  color: #444; font-size: 10px; padding: 2px 8px; cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.btn-dn-act:hover { color: #aaa; border-color: #5050a0; }
+
 .fn-section { display: flex; flex-direction: column; gap: 6px; }
 .free-note {
   width: 100%; box-sizing: border-box;

@@ -190,7 +190,13 @@
 
       <!-- 數字狀態（確定有/沒有） -->
       <div class="dn-section">
-        <p class="dn-head">數字狀態 <span class="dn-legend-inline"><span class="dn-chip-in">●</span>有&nbsp;<span class="dn-chip-out">✗</span>沒有</span></p>
+        <div class="dn-head-row">
+          <p class="dn-head">數字狀態 <span class="dn-legend-inline"><span class="dn-chip-in">●</span>有&nbsp;<span class="dn-chip-out">✗</span>沒有</span></p>
+          <div class="dn-actions">
+            <button id="dnSelectAll" class="btn-dn-act">全選</button>
+            <button id="dnClearAll"  class="btn-dn-act">全消</button>
+          </div>
+        </div>
         <div id="digitNotes" class="dn-row"></div>
       </div>
 
