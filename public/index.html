@@ -44,6 +44,8 @@
         </div>
       </button>
 
+      <button id="btnLeaderboard" class="btn-leaderboard">🏆 排行榜</button>
+
       <p class="mode-section-label">─ 線上模式 ─</p>
       <button id="btnOnlineDual" class="mode-card mode-card-online">
         <span class="mc-icon">⚔️</span>
@@ -62,11 +64,32 @@
     </div>
   </div>
 
+  <!-- ── 排行榜 ── -->
+  <div id="leaderboardScreen" class="hidden">
+    <div class="setup-card">
+      <p class="setup-player">🏆</p>
+      <h2>排行榜</h2>
+      <div id="lbContent" class="lb-content">
+        <p class="lb-loading">載入中...</p>
+      </div>
+      <button class="btn-back" id="backFromLeaderboard">← 返回</button>
+    </div>
+  </div>
+
   <!-- ── 線上大廳 ── -->
   <div id="lobbyScreen" class="hidden">
     <div class="setup-card">
       <p class="setup-player" id="lobbyModeLabel">線上對拆</p>
       <h2>加入房間</h2>
+
+      <!-- 名字輸入 -->
+      <div class="lobby-section">
+        <p class="setup-hint">你的名字（會顯示在排行榜）</p>
+        <input id="playerNameInput" type="text" maxlength="12" placeholder="輸入名字" autocomplete="off">
+        <p id="nameError" class="error-msg hidden">請輸入名字</p>
+      </div>
+      <div class="lobby-or">— 選擇 —</div>
+
       <div class="lobby-section">
         <button id="btnCreateRoom" class="btn-primary">建立新房間</button>
       </div>

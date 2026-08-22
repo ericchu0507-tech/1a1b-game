@@ -209,7 +209,38 @@ h2 { font-size: 20px; letter-spacing: 3px; color: #d0d0f0; }
 /* ══════════════════════════════
    ONLINE: LOBBY + WAIT
 ══════════════════════════════ */
+/* ── Leaderboard ── */
+#leaderboardScreen { width: 100%; display: flex; justify-content: center; padding-top: 40px; }
+.lb-content { width: 100%; min-height: 80px; }
+.lb-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.lb-table th { color: #444; font-weight: normal; letter-spacing: 1px; padding: 6px 8px; border-bottom: 1px solid #1e1e2e; text-align: left; }
+.lb-table td { padding: 9px 8px; border-bottom: 1px solid #0f0f1c; color: #888; }
+.lb-table tr:last-child td { border-bottom: none; }
+.lb-table td:first-child { color: #444; }
+.lb-win  { color: #4ade80 !important; font-weight: bold; }
+.lb-loss { color: #f87171 !important; }
+.lb-rate { color: #aaa !important; }
+.lb-table tr.lb-me td { background: rgba(80,80,160,0.12); }
+.lb-table tr.lb-me td:nth-child(2) { color: #c8c8ff; }
+.lb-empty, .lb-loading { color: #444; text-align: center; padding: 28px 0; font-size: 13px; letter-spacing: 1px; }
+.btn-leaderboard {
+  width: 100%; margin-top: 4px;
+  background: transparent; border: 1px solid #1e1e2e; border-radius: 8px;
+  color: #555; font-size: 12px; letter-spacing: 1px; padding: 11px;
+  cursor: pointer; transition: color 0.15s, border-color 0.15s;
+}
+.btn-leaderboard:hover { color: #aaa; border-color: #555; }
+
+/* ── Lobby ── */
 #lobbyScreen { width: 100%; display: flex; justify-content: center; padding-top: 60px; }
+#playerNameInput {
+  width: 100%; box-sizing: border-box;
+  background: #0c0c18; border: 1px solid #2a2a42; border-radius: 8px;
+  color: #ccc; font-size: 15px; padding: 10px 14px; outline: none;
+  letter-spacing: 1px; transition: border-color 0.2s;
+}
+#playerNameInput:focus { border-color: #6060c0; }
+#playerNameInput::placeholder { color: #2a2a40; }
 
 .lobby-section { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; }
 .lobby-or { font-size: 11px; letter-spacing: 3px; color: #333; padding: 4px 0; }

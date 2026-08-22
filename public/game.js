@@ -16,6 +16,9 @@ let setupCallback = null;
 let notesCells = [];
 let digitNotes = [];
 
+// Player identity
+let playerName = localStorage.getItem('1a1b_name') || '';
+
 // Online state
 let socket = null;
 let pendingOnlineMode = '';  // 'dual' | 'ai-dual'
@@ -75,13 +78,14 @@ function onTimerExpired() {
 
 // DOM
 const screens = {
-  mode:    document.getElementById('modeScreen'),
-  setup:   document.getElementById('setupScreen'),
-  handoff: document.getElementById('handoffScreen'),
-  game:    document.getElementById('gameScreen'),
-  result:  document.getElementById('resultScreen'),
-  lobby:   document.getElementById('lobbyScreen'),
-  wait:    document.getElementById('waitScreen'),
+  mode:        document.getElementById('modeScreen'),
+  setup:       document.getElementById('setupScreen'),
+  handoff:     document.getElementById('handoffScreen'),
+  game:        document.getElementById('gameScreen'),
+  result:      document.getElementById('resultScreen'),
+  lobby:       document.getElementById('lobbyScreen'),
+  wait:        document.getElementById('waitScreen'),
+  leaderboard: document.getElementById('leaderboardScreen'),
 };
 
 // ══════════════════════════════
@@ -591,6 +595,30 @@ function connectSocket() {
     el.textContent = msg;
     el.classList.remove('hidden');
   });
+
+  socket.on('leaderboard-data', (rows) => {
+    const content = document.getElementById('lbContent');
+    if (rows.length === 0) {
+      content.innerHTML = '<p class="lb-empty">還沒有紀錄，快去玩吧！</p>';
+      return;
+    }
+    const tbody = rows.map((r, i) => {
+      const total = r.wins + r.losses;
+      const rate  = total > 0 ? Math.round(r.wins / total * 100) + '%' : '-';
+      const isMe  = r.name === playerName;
+      return `<tr${isMe ? ' class="lb-me"' : ''}>
+        <td>${i + 1}</td>
+        <td>${r.name}${isMe ? ' 👤' : ''}</td>
+        <td class="lb-win">${r.wins}</td>
+        <td class="lb-loss">${r.losses}</td>
+        <td class="lb-rate">${rate}</td>
+      </tr>`;
+    }).join('');
+    content.innerHTML = `<table class="lb-table">
+      <thead><tr><th>#</th><th>名字</th><th>勝</th><th>敗</th><th>勝率</th></tr></thead>
+      <tbody>${tbody}</tbody>
+    </table>`;
+  });
 }
 
 // Wait screen helpers
@@ -684,27 +712,40 @@ function disconnectSocket() {
 document.getElementById('btnSolo').onclick = startSolo;
 document.getElementById('btnChallenge').onclick = startChallenge;
 
-document.getElementById('btnOnlineDual').onclick = () => {
-  pendingOnlineMode = 'dual';
-  document.getElementById('lobbyModeLabel').textContent = '線上對拆';
+function openLobby(subMode, label) {
+  pendingOnlineMode = subMode;
+  document.getElementById('lobbyModeLabel').textContent = label;
   document.getElementById('lobbyError').classList.add('hidden');
+  document.getElementById('nameError').classList.add('hidden');
   document.getElementById('roomCodeInput').value = '';
+  document.getElementById('playerNameInput').value = playerName;
   showScreen('lobby');
-};
-document.getElementById('btnOnlineAiDual').onclick = () => {
-  pendingOnlineMode = 'ai-dual';
-  document.getElementById('lobbyModeLabel').textContent = '線上競速';
-  document.getElementById('lobbyError').classList.add('hidden');
-  document.getElementById('roomCodeInput').value = '';
-  showScreen('lobby');
-};
+}
+document.getElementById('btnOnlineDual').onclick   = () => openLobby('dual',    '線上對拆');
+document.getElementById('btnOnlineAiDual').onclick = () => openLobby('ai-dual', '線上競速');
+
+function readLobbyName() {
+  const val = document.getElementById('playerNameInput').value.trim();
+  if (!val) {
+    document.getElementById('nameError').classList.remove('hidden');
+    return null;
+  }
+  document.getElementById('nameError').classList.add('hidden');
+  playerName = val;
+  localStorage.setItem('1a1b_name', playerName);
+  return playerName;
+}
 
 document.getElementById('btnCreateRoom').onclick = () => {
+  const name = readLobbyName();
+  if (!name) return;
   connectSocket();
-  socket.emit('create-room', { mode: pendingOnlineMode });
+  socket.emit('create-room', { mode: pendingOnlineMode, name });
 };
 
 document.getElementById('btnJoinRoom').onclick = () => {
+  const name = readLobbyName();
+  if (!name) return;
   const code = document.getElementById('roomCodeInput').value.trim();
   if (!/^\d{4}$/.test(code)) {
     const el = document.getElementById('lobbyError');
@@ -714,7 +755,7 @@ document.getElementById('btnJoinRoom').onclick = () => {
   }
   document.getElementById('lobbyError').classList.add('hidden');
   connectSocket();
-  socket.emit('join-room', { code });
+  socket.emit('join-room', { code, name });
 };
 
 document.getElementById('btnStartGame').onclick = () => {
@@ -743,6 +784,14 @@ document.getElementById('backFromSetup').onclick = () => {
   disconnectSocket(); showScreen('mode');
 };
 document.getElementById('backFromHandoff').onclick = () => showScreen('mode');
+document.getElementById('btnLeaderboard').onclick = () => {
+  document.getElementById('lbContent').innerHTML = '<p class="lb-loading">載入中...</p>';
+  showScreen('leaderboard');
+  connectSocket();
+  socket.emit('get-leaderboard');
+};
+document.getElementById('backFromLeaderboard').onclick = () => showScreen('mode');
+
 document.getElementById('backFromLobby').onclick   = () => showScreen('mode');
 document.getElementById('backFromWait').onclick    = () => { disconnectSocket(); showScreen('mode'); };
 

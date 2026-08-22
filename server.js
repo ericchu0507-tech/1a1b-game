@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
@@ -10,6 +11,15 @@ const io = new Server(server);
 app.use(express.static(path.join(__dirname, 'public')));
 
 const rooms = new Map();
+
+// ── Leaderboard ──
+const LEADERBOARD_FILE = path.join(__dirname, 'leaderboard.json');
+let leaderboard = {};
+try { leaderboard = JSON.parse(fs.readFileSync(LEADERBOARD_FILE, 'utf8')); } catch {}
+
+function saveLeaderboard() {
+  try { fs.writeFileSync(LEADERBOARD_FILE, JSON.stringify(leaderboard, null, 2)); } catch {}
+}
 
 function genCode() {
   let code;
@@ -46,7 +56,7 @@ io.on('connection', (socket) => {
 
   function getRoom() { return rooms.get(roomCode); }
 
-  socket.on('create-room', ({ mode }) => {
+  socket.on('create-room', ({ mode, name }) => {
     const code = genCode();
     rooms.set(code, {
       mode,
@@ -59,6 +69,7 @@ io.on('connection', (socket) => {
       guessCount: [0],
       playerDone: [false],
       playerWon:  [false],
+      playerNames: [name || ''],
     });
     roomCode = code;
     playerIdx = 0;
@@ -66,7 +77,7 @@ io.on('connection', (socket) => {
     socket.emit('room-created', { code, mode });
   });
 
-  socket.on('join-room', ({ code }) => {
+  socket.on('join-room', ({ code, name }) => {
     const room = rooms.get(code);
     if (!room) { socket.emit('join-error', { msg: '找不到房間，請確認號碼' }); return; }
     if (room.started) { socket.emit('join-error', { msg: '遊戲已經開始了' }); return; }
@@ -77,6 +88,7 @@ io.on('connection', (socket) => {
     room.guessCount.push(0);
     room.playerDone.push(false);
     room.playerWon.push(false);
+    room.playerNames.push(name || '');
     roomCode = code;
     socket.join(code);
 
@@ -177,16 +189,33 @@ io.on('connection', (socket) => {
         }
       }
     });
+    // 更新排行榜
+    room.playerNames.forEach((name, i) => {
+      if (!name) return;
+      if (!leaderboard[name]) leaderboard[name] = { wins: 0, losses: 0 };
+      if (winners.includes(i)) leaderboard[name].wins++;
+      else leaderboard[name].losses++;
+    });
+    saveLeaderboard();
+
     io.to(roomCode).emit('game-over', {
       winners,
-      counts:   room.guessCount,
-      won:      room.playerWon,
-      targets:  room.targets,
-      aiSecret: room.aiSecret,
-      mode:     room.mode,
+      counts:      room.guessCount,
+      won:         room.playerWon,
+      targets:     room.targets,
+      aiSecret:    room.aiSecret,
+      mode:        room.mode,
+      playerNames: room.playerNames,
     });
     rooms.delete(roomCode);
   }
+
+  socket.on('get-leaderboard', () => {
+    const rows = Object.entries(leaderboard)
+      .map(([name, s]) => ({ name, wins: s.wins, losses: s.losses }))
+      .sort((a, b) => b.wins - a.wins || a.losses - b.losses);
+    socket.emit('leaderboard-data', rows);
+  });
 
   socket.on('disconnect', () => {
     const room = getRoom();
